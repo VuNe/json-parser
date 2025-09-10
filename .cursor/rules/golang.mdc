@@ -1,0 +1,23 @@
+---
+description: Go instructions
+globs: **/*.go
+alwaysApply: false
+---
+# Golang Coding Standards
+
+## Language Version
+- Always target Go version 1.25 when writing code in Golang
+
+## Best Practices
+- Follow Go best practices and conventions
+- Follow the official Go style guide
+- Maintain a folder structure that follows Go best practices
+- Use `any` instead of `interface{}`
+
+## Code Style
+- Use `gofmt` for code formatting
+- Follow effective Go guidelines
+- Use meaningful variable and function names
+- Keep functions small and focused
+- Use interfaces for abstraction
+- Prefer composition over inheritance
