@@ -96,6 +96,17 @@ When encountering errors, failing tests or other failure states, where fixing th
 - Add comments to give the reader the necessary context for understanding the code
 - Avoid commenting obvious and self-documenting code. Strive to make the code self-documenting instead by using clear naming conventions
 
+### Rules for Writing Git Branch Names
+- The name should summarize what the changes in the branch achieve (the intent)
+- Try to stay between two and eight words, the less the better.
+- Include the JIRA issue key as the first entry in the branch name
+- The JIRA issue should be separated with a `/` from the rest of the branch name 
+
+## Example Format
+```
+ABC-1/support_multiple_json_objects
+```
+
 ### Rules for Writing Git Commit Messages
 - The title should summarize what the changes in the commit achieve (the intent)
 - Include all relevant information about what has changed and why the change has been made
@@ -125,6 +136,7 @@ When encountering errors, failing tests or other failure states, where fixing th
 - You follow the industry standard best practices when programming in Go
 - You are mindful about code style and follow the linter rules as described in `#### Go Linting Rules`
 - Use `any` instead of `ìnterface{}`
+- `ioutil.ReadFile` is deprecated: As of Go 1.16, this function simply calls `os.ReadFile`.
 
 #### Go Version
 - Use Go version 1.25

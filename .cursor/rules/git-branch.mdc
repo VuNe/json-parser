@@ -7,7 +7,7 @@ alwaysApply: false
 
 ## Git Branch Name Structure
 - The name should summarize what the changes in the branch achieve (the intent)
-- Try to stay between two and fine words
+- Try to stay between two and eight words, the less the better.
 - Include the JIRA issue key as the first entry in the branch name
 - The JIRA issue should be separated with a `/` from the rest of the branch name 
 
