@@ -125,11 +125,11 @@ support_multiple_json_objects
   - feat
   - fix
   - test
-	- chore
-	- docs
-	- refactor
-	- style
-	- perf
+  - chore
+  - docs
+  - refactor
+  - style
+  - perf
   - ci
   - tool
 
