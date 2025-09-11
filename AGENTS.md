@@ -103,8 +103,9 @@ When encountering errors, failing tests or other failure states, where fixing th
 ### Rules for Writing Git Branch Names
 - The name should summarize what the changes in the branch achieve (the intent)
 - Try to stay between two and eight words, the less the better.
-- Include the JIRA issue key as the first entry in the branch name
-- The JIRA issue should be separated with a `/` from the rest of the branch name 
+- If this is a JIRA issue. Include the JIRA issue key as the first entry in the branch name
+  - The JIRA issue should be separated with a `/` from the rest of the branch name
+- If this is not and JIRA Issue. Just use a descriptive name
 
 ## Example Format
 ```
