@@ -50,6 +50,9 @@ We are building a JSON parser. We are writing the software in Go.
 - The unit tests MUST NOT require starting the software itself (if applicable, eg. a server application)
 - Removing a failing test IS NOT the correct solution for fixing the failing test. A failing test means that either the test or the implementation is wrong, and one of them (or both) need to be fixed
 
+## Developement Tool Rules
+- Do not use Power Shell if you are not working from a Windows machine
+
 # Documenting learnings (important!)
 
 When you're working on a task and learn something new (maybe through mistakes, or otherwise) that can
