@@ -11,12 +11,18 @@
 - Integration testing with JSON files ✅
 - Run linter and fix issues ✅
 
-## Slice 2: String Key-Value Pairs (Step 2) ❌  
-- Extend lexer to tokenize strings, colons, and commas ❌
-- Extend parser to handle string key-value pairs ❌
-- Add string parsing logic with escape sequence handling ❌
-- Update unit tests for Step 2 ❌
-- Test against provided Step 2 test files ❌
+## Slice 2: String Key-Value Pairs (Step 2) ⏳  
+- Switch to main branch and create feature branch ❌
+- Extend lexer to tokenize strings with escape sequences ❌
+- Extend lexer to tokenize colons and commas ❌ 
+- Update parser to handle key-value pair parsing ❌
+- Update parser object creation to use map[string]interface{} ❌
+- Add comprehensive unit tests for string tokenization ❌
+- Add comprehensive unit tests for key-value pair parsing ❌
+- Create Step 2 test data files ❌
+- Run integration tests with Step 2 test files ❌
+- Verify backward compatibility with Step 1 tests ❌
+- Fix any linting issues ❌
 
 ## Slice 3: Multiple Data Types (Step 3) ❌
 - Extend lexer to tokenize numbers, true/false, null keywords ❌
