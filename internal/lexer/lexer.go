@@ -3,6 +3,7 @@ package lexer
 import (
 	"fmt"
 	"unicode"
+	"unicode/utf8"
 )
 
 // Lexer interface defines the contract for tokenizing JSON input.
@@ -77,6 +78,14 @@ func (l *lexer) NextToken() (Token, error) {
 	case '}':
 		tok = Token{Type: RIGHT_BRACE, Value: string(l.ch), Position: l.position}
 		l.readChar()
+	case ':':
+		tok = Token{Type: COLON, Value: string(l.ch), Position: l.position}
+		l.readChar()
+	case ',':
+		tok = Token{Type: COMMA, Value: string(l.ch), Position: l.position}
+		l.readChar()
+	case '"':
+		return l.readString()
 	case 0:
 		tok = Token{Type: EOF, Value: "", Position: l.position}
 	default:
@@ -101,4 +110,108 @@ func (l *lexer) HasMore() bool {
 // Position returns the current position in the input.
 func (l *lexer) Position() Position {
 	return l.position
+}
+
+// readString reads a JSON string token with escape sequence support.
+func (l *lexer) readString() (Token, error) {
+	position := l.position // Save the starting position
+	var value []byte
+
+	// Skip opening quote
+	l.readChar()
+
+	for l.ch != '"' && l.ch != 0 {
+		if l.ch == '\\' {
+			l.readChar()
+			if l.ch == 0 {
+				return Token{Type: INVALID, Value: string(value), Position: position},
+					fmt.Errorf("unterminated string at %s", position)
+			}
+
+			switch l.ch {
+			case '"':
+				value = append(value, '"')
+			case '\\':
+				value = append(value, '\\')
+			case '/':
+				value = append(value, '/')
+			case 'b':
+				value = append(value, '\b')
+			case 'f':
+				value = append(value, '\f')
+			case 'n':
+				value = append(value, '\n')
+			case 'r':
+				value = append(value, '\r')
+			case 't':
+				value = append(value, '\t')
+			case 'u':
+				// Handle Unicode escape sequence \uXXXX
+				unicode, err := l.readUnicodeEscape()
+				if err != nil {
+					return Token{Type: INVALID, Value: string(value), Position: position}, err
+				}
+				value = append(value, unicode...)
+			default:
+				return Token{Type: INVALID, Value: string(value), Position: position},
+					fmt.Errorf("invalid escape sequence '\\%c' at %s", l.ch, l.position)
+			}
+		} else {
+			value = append(value, l.ch)
+		}
+		l.readChar()
+	}
+
+	if l.ch != '"' {
+		return Token{Type: INVALID, Value: string(value), Position: position},
+			fmt.Errorf("unterminated string at %s", position)
+	}
+
+	// Skip closing quote
+	l.readChar()
+
+	return Token{Type: STRING, Value: string(value), Position: position}, nil
+}
+
+// readUnicodeEscape reads a Unicode escape sequence \uXXXX and returns the UTF-8 bytes.
+func (l *lexer) readUnicodeEscape() ([]byte, error) {
+	l.readChar() // skip 'u'
+
+	var hexDigits [4]byte
+	for i := 0; i < 4; i++ {
+		if l.ch == 0 {
+			return nil, fmt.Errorf("incomplete Unicode escape sequence at %s", l.position)
+		}
+		if !isHexDigit(l.ch) {
+			return nil, fmt.Errorf("invalid Unicode escape sequence '\\u%s' at %s", string(hexDigits[:i]), l.position)
+		}
+		hexDigits[i] = l.ch
+		if i < 3 { // Don't advance past the last digit
+			l.readChar()
+		}
+	}
+
+	// Convert hex string to rune
+	var codePoint rune
+	for _, digit := range hexDigits {
+		codePoint <<= 4
+		switch {
+		case digit >= '0' && digit <= '9':
+			codePoint += rune(digit - '0')
+		case digit >= 'A' && digit <= 'F':
+			codePoint += rune(digit - 'A' + 10)
+		case digit >= 'a' && digit <= 'f':
+			codePoint += rune(digit - 'a' + 10)
+		}
+	}
+
+	// Convert rune to UTF-8 bytes
+	result := make([]byte, 4)
+	n := utf8.EncodeRune(result, codePoint)
+	return result[:n], nil
+}
+
+// isHexDigit returns true if the character is a valid hexadecimal digit.
+func isHexDigit(ch byte) bool {
+	return (ch >= '0' && ch <= '9') || (ch >= 'A' && ch <= 'F') || (ch >= 'a' && ch <= 'f')
 }

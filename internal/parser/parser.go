@@ -60,19 +60,12 @@ func (p *parser) Parse() (JSONValue, error) {
 	return value, nil
 }
 
-// ParseValue parses a JSON value (for Step 1, only empty objects).
+// ParseValue parses a JSON value (supports objects and strings).
 func (p *parser) ParseValue() (JSONValue, error) {
-	switch p.currentToken.Type {
-	case lexer.LEFT_BRACE:
-		return p.parseObject()
-	case lexer.EOF:
-		return nil, NewParseError("unexpected end of input", p.currentToken)
-	default:
-		return nil, NewParseError("expected JSON value", p.currentToken)
-	}
+	return p.parseValue()
 }
 
-// parseObject parses a JSON object (for Step 1, only empty objects).
+// parseObject parses a JSON object with string key-value pairs.
 func (p *parser) parseObject() (JSONValue, error) {
 	if p.currentToken.Type != lexer.LEFT_BRACE {
 		return nil, NewParseError("expected '{'", p.currentToken)
@@ -86,17 +79,71 @@ func (p *parser) parseObject() (JSONValue, error) {
 		return nil, NewParseError("expected '}'", p.currentToken)
 	}
 
-	// For Step 1, we only support empty objects
-	// Check if the next token is a closing brace
+	obj := NewJSONObject()
+
+	// Check if it's an empty object
 	if p.currentToken.Type == lexer.RIGHT_BRACE {
-		// This is an empty object {}
 		p.nextToken() // consume the closing brace
-		return NewEmptyObject(), nil
+		return obj, nil
 	}
 
-	// If we get here, it means there's content inside the braces
-	// For Step 1, this is not supported
-	return nil, NewParseError("non-empty objects are not supported in Step 1", p.currentToken)
+	// Parse key-value pairs
+	for {
+		// Expect string key
+		if p.currentToken.Type != lexer.STRING {
+			return nil, NewParseError("expected string key", p.currentToken)
+		}
+
+		key := p.currentToken.Value
+		p.nextToken()
+
+		// Expect colon
+		if p.currentToken.Type != lexer.COLON {
+			return nil, NewParseError("expected ':'", p.currentToken)
+		}
+		p.nextToken()
+
+		// Parse value (for Step 2, only strings are supported)
+		value, err := p.parseValue()
+		if err != nil {
+			return nil, err
+		}
+
+		obj[key] = value
+
+		// Check for comma or closing brace
+		if p.currentToken.Type == lexer.RIGHT_BRACE {
+			p.nextToken() // consume the closing brace
+			break
+		} else if p.currentToken.Type == lexer.COMMA {
+			p.nextToken() // consume the comma
+
+			// After comma, we must have another key-value pair or it's an error
+			if p.currentToken.Type == lexer.RIGHT_BRACE {
+				return nil, NewParseError("trailing comma not allowed", p.currentToken)
+			}
+		} else {
+			return nil, NewParseError("expected ',' or '}'", p.currentToken)
+		}
+	}
+
+	return obj, nil
+}
+
+// parseValue parses a JSON value (for Step 2, supports objects and strings).
+func (p *parser) parseValue() (JSONValue, error) {
+	switch p.currentToken.Type {
+	case lexer.LEFT_BRACE:
+		return p.parseObject()
+	case lexer.STRING:
+		value := p.currentToken.Value
+		p.nextToken()
+		return value, nil
+	case lexer.EOF:
+		return nil, NewParseError("unexpected end of input", p.currentToken)
+	default:
+		return nil, NewParseError("expected JSON value", p.currentToken)
+	}
 }
 
 // expectToken checks if the current token matches the expected type and advances.
