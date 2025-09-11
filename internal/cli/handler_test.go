@@ -52,8 +52,8 @@ func TestHandler_ParseString(t *testing.T) {
 		{
 			name:         "non-empty object",
 			input:        `{"key": "value"}`,
-			expectError:  true,
-			expectedExit: 1,
+			expectError:  false,
+			expectedExit: 0,
 		},
 		{
 			name:         "invalid character",

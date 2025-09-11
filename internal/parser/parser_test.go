@@ -67,10 +67,9 @@ func TestParser_Parse(t *testing.T) {
 			errorMsg:    "unexpected content after JSON value",
 		},
 		{
-			name:        "non-empty object (not supported in Step 1)",
+			name:        "simple key-value pair",
 			input:       `{"key": "value"}`,
-			expectError: true,
-			errorMsg:    "non-empty objects are not supported in Step 1",
+			expectError: false,
 		},
 		{
 			name:        "invalid character",
@@ -108,8 +107,8 @@ func TestParser_Parse(t *testing.T) {
 				// For valid cases, check the value type
 				if value == nil {
 					t.Error("expected non-nil value for successful parse")
-				} else if _, ok := value.(EmptyObject); !ok {
-					t.Errorf("expected EmptyObject, got %T", value)
+				} else if _, ok := value.(JSONObject); !ok {
+					t.Errorf("expected JSONObject, got %T", value)
 				}
 			}
 		})
@@ -185,6 +184,250 @@ func TestParseError_Error(t *testing.T) {
 	}
 }
 
+func TestParser_KeyValuePairs(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expectError bool
+		expected    map[string]any
+	}{
+		{
+			name:        "single key-value pair",
+			input:       `{"key": "value"}`,
+			expectError: false,
+			expected:    map[string]any{"key": "value"},
+		},
+		{
+			name:        "multiple key-value pairs",
+			input:       `{"key1": "value1", "key2": "value2"}`,
+			expectError: false,
+			expected:    map[string]any{"key1": "value1", "key2": "value2"},
+		},
+		{
+			name:        "empty string values",
+			input:       `{"key1": "", "key2": "value"}`,
+			expectError: false,
+			expected:    map[string]any{"key1": "", "key2": "value"},
+		},
+		{
+			name:        "string with escape sequences",
+			input:       `{"key": "hello\nworld"}`,
+			expectError: false,
+			expected:    map[string]any{"key": "hello\nworld"},
+		},
+		{
+			name:        "key with escape sequences",
+			input:       `{"key\twith\ttabs": "value"}`,
+			expectError: false,
+			expected:    map[string]any{"key\twith\ttabs": "value"},
+		},
+		{
+			name:        "nested object",
+			input:       `{"outer": {"inner": "value"}}`,
+			expectError: false,
+			expected: map[string]any{
+				"outer": map[string]any{"inner": "value"},
+			},
+		},
+		{
+			name:        "object with whitespace",
+			input:       `{ "key" : "value" }`,
+			expectError: false,
+			expected:    map[string]any{"key": "value"},
+		},
+		{
+			name:        "object with newlines",
+			input:       "{\n  \"key\": \"value\"\n}",
+			expectError: false,
+			expected:    map[string]any{"key": "value"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := New(l)
+
+			value, err := p.Parse()
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got none")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+
+				if value == nil {
+					t.Error("expected non-nil value")
+					return
+				}
+
+				obj, ok := value.(JSONObject)
+				if !ok {
+					t.Errorf("expected JSONObject, got %T", value)
+					return
+				}
+
+				if !deepEqual(obj, tt.expected) {
+					t.Errorf("expected %v, got %v", tt.expected, obj)
+				}
+			}
+		})
+	}
+}
+
+func TestParser_KeyValuePairErrors(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expectedMsg string
+		expectError bool
+	}{
+		{
+			name:        "missing colon",
+			input:       `{"key" "value"}`,
+			expectedMsg: "expected ':'",
+			expectError: true,
+		},
+		{
+			name:        "missing comma",
+			input:       `{"key1": "value1" "key2": "value2"}`,
+			expectedMsg: "expected ',' or '}'",
+			expectError: true,
+		},
+		{
+			name:        "trailing comma",
+			input:       `{"key": "value",}`,
+			expectedMsg: "trailing comma not allowed",
+			expectError: true,
+		},
+		{
+			name:        "non-string key",
+			input:       `{123: "value"}`,
+			expectedMsg: "expected string key",
+			expectError: true,
+		},
+		{
+			name:        "missing value",
+			input:       `{"key":}`,
+			expectedMsg: "expected JSON value",
+			expectError: true,
+		},
+		{
+			name:        "missing closing brace",
+			input:       `{"key": "value"`,
+			expectedMsg: "expected ',' or '}'",
+			expectError: true,
+		},
+		{
+			name:        "empty key",
+			input:       `{"": "value"}`,
+			expectedMsg: "",
+			expectError: false, // Empty keys are valid in JSON
+		},
+		{
+			name:        "duplicate keys",
+			input:       `{"key": "value1", "key": "value2"}`,
+			expectedMsg: "",
+			expectError: false, // Duplicate keys are handled by overwriting
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if !tt.expectError {
+				// This is a valid case, skip error checking
+				return
+			}
+
+			l := lexer.New(tt.input)
+			p := New(l)
+
+			_, err := p.Parse()
+
+			if err == nil {
+				t.Error("expected error but got none")
+			} else if tt.expectedMsg != "" && !containsSubstring(err.Error(), tt.expectedMsg) {
+				t.Errorf("expected error containing %q, got %q", tt.expectedMsg, err.Error())
+			}
+		})
+	}
+}
+
+func TestParser_StringValues(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "simple string",
+			input:    `{"key": "hello"}`,
+			expected: "hello",
+		},
+		{
+			name:     "empty string",
+			input:    `{"key": ""}`,
+			expected: "",
+		},
+		{
+			name:     "string with quotes",
+			input:    `{"key": "hello \"world\""}`,
+			expected: `hello "world"`,
+		},
+		{
+			name:     "string with backslashes",
+			input:    `{"key": "hello\\world"}`,
+			expected: `hello\world`,
+		},
+		{
+			name:     "string with newlines",
+			input:    `{"key": "hello\nworld"}`,
+			expected: "hello\nworld",
+		},
+		{
+			name:     "string with unicode",
+			input:    `{"key": "hello\u0041world"}`,
+			expected: "helloAworld",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := New(l)
+
+			value, err := p.Parse()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			obj, ok := value.(JSONObject)
+			if !ok {
+				t.Fatalf("expected JSONObject, got %T", value)
+			}
+
+			actual := obj["key"]
+			if actual != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, actual)
+			}
+		})
+	}
+}
+
+func TestNewJSONObject(t *testing.T) {
+	obj := NewJSONObject()
+	if obj == nil {
+		t.Error("NewJSONObject() returned nil")
+	}
+
+	if len(obj) != 0 {
+		t.Errorf("NewJSONObject() should be empty, got length %d", len(obj))
+	}
+}
+
 func TestNewEmptyObject(t *testing.T) {
 	obj := NewEmptyObject()
 	if obj == nil {
@@ -193,6 +436,64 @@ func TestNewEmptyObject(t *testing.T) {
 
 	if len(obj) != 0 {
 		t.Errorf("NewEmptyObject() should be empty, got length %d", len(obj))
+	}
+}
+
+// Helper function to deeply compare two map structures
+func deepEqual(a, b map[string]any) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for k, v1 := range a {
+		v2, ok := b[k]
+		if !ok {
+			return false
+		}
+
+		if !deepEqualValue(v1, v2) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// Helper function to compare any values recursively
+func deepEqualValue(a, b any) bool {
+	switch val1 := a.(type) {
+	case string:
+		val2, ok := b.(string)
+		return ok && val1 == val2
+	case []any:
+		val2, ok := b.([]any)
+		if !ok {
+			return false
+		}
+		if len(val1) != len(val2) {
+			return false
+		}
+		for i, v1 := range val1 {
+			if !deepEqualValue(v1, val2[i]) {
+				return false
+			}
+		}
+		return true
+	case map[string]any:
+		val2, ok := b.(map[string]any)
+		if ok {
+			return deepEqual(val1, val2)
+		}
+		// Also check for JSONObject type
+		if jsonObj, ok := b.(JSONObject); ok {
+			return deepEqual(val1, map[string]any(jsonObj))
+		}
+		return false
+	case JSONObject:
+		// Convert JSONObject to map[string]any for comparison
+		return deepEqualValue(map[string]any(val1), b)
+	default:
+		return a == b
 	}
 }
 
@@ -208,4 +509,528 @@ func findSubstring(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+// TestParser_NumberParsing tests the parser's ability to parse number values correctly.
+func TestParser_NumberParsing(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		expectedValue any
+		expectedType  string
+	}{
+		{
+			name:          "positive integer",
+			input:         `{"value": 123}`,
+			expectedValue: int64(123),
+			expectedType:  "int64",
+		},
+		{
+			name:          "negative integer",
+			input:         `{"value": -456}`,
+			expectedValue: int64(-456),
+			expectedType:  "int64",
+		},
+		{
+			name:          "zero",
+			input:         `{"value": 0}`,
+			expectedValue: int64(0),
+			expectedType:  "int64",
+		},
+		{
+			name:          "positive float",
+			input:         `{"value": 123.45}`,
+			expectedValue: 123.45,
+			expectedType:  "float64",
+		},
+		{
+			name:          "negative float",
+			input:         `{"value": -67.89}`,
+			expectedValue: -67.89,
+			expectedType:  "float64",
+		},
+		{
+			name:          "float starting with zero",
+			input:         `{"value": 0.123}`,
+			expectedValue: 0.123,
+			expectedType:  "float64",
+		},
+		{
+			name:          "scientific notation positive exponent",
+			input:         `{"value": 1.23e+10}`,
+			expectedValue: 1.23e+10,
+			expectedType:  "float64",
+		},
+		{
+			name:          "scientific notation negative exponent",
+			input:         `{"value": 1.23e-4}`,
+			expectedValue: 1.23e-4,
+			expectedType:  "float64",
+		},
+		{
+			name:          "scientific notation uppercase E",
+			input:         `{"value": 6.022E23}`,
+			expectedValue: 6.022e23,
+			expectedType:  "float64",
+		},
+		{
+			name:          "integer scientific notation",
+			input:         `{"value": 1E+10}`,
+			expectedValue: 1e+10,
+			expectedType:  "float64",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := New(l)
+
+			result, err := p.Parse()
+			if err != nil {
+				t.Fatalf("Parse() returned error: %v", err)
+			}
+
+			obj, ok := result.(JSONObject)
+			if !ok {
+				t.Fatalf("Expected JSONObject, got %T", result)
+			}
+
+			value, exists := obj["value"]
+			if !exists {
+				t.Fatalf("Expected 'value' key not found")
+			}
+
+			// Check type and value
+			switch tt.expectedType {
+			case "int64":
+				if intVal, ok := value.(int64); !ok {
+					t.Errorf("Expected int64, got %T", value)
+				} else if intVal != tt.expectedValue {
+					t.Errorf("Expected %v, got %v", tt.expectedValue, intVal)
+				}
+			case "float64":
+				if floatVal, ok := value.(float64); !ok {
+					t.Errorf("Expected float64, got %T", value)
+				} else if floatVal != tt.expectedValue {
+					t.Errorf("Expected %v, got %v", tt.expectedValue, floatVal)
+				}
+			}
+		})
+	}
+}
+
+// TestParser_BooleanParsing tests the parser's ability to parse boolean values correctly.
+func TestParser_BooleanParsing(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		expectedValue bool
+	}{
+		{
+			name:          "true value",
+			input:         `{"active": true}`,
+			expectedValue: true,
+		},
+		{
+			name:          "false value",
+			input:         `{"active": false}`,
+			expectedValue: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := New(l)
+
+			result, err := p.Parse()
+			if err != nil {
+				t.Fatalf("Parse() returned error: %v", err)
+			}
+
+			obj, ok := result.(JSONObject)
+			if !ok {
+				t.Fatalf("Expected JSONObject, got %T", result)
+			}
+
+			value, exists := obj["active"]
+			if !exists {
+				t.Fatalf("Expected 'active' key not found")
+			}
+
+			boolVal, ok := value.(bool)
+			if !ok {
+				t.Errorf("Expected bool, got %T", value)
+			} else if boolVal != tt.expectedValue {
+				t.Errorf("Expected %v, got %v", tt.expectedValue, boolVal)
+			}
+		})
+	}
+}
+
+// TestParser_NullParsing tests the parser's ability to parse null values correctly.
+func TestParser_NullParsing(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "null value",
+			input: `{"optional": null}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := New(l)
+
+			result, err := p.Parse()
+			if err != nil {
+				t.Fatalf("Parse() returned error: %v", err)
+			}
+
+			obj, ok := result.(JSONObject)
+			if !ok {
+				t.Fatalf("Expected JSONObject, got %T", result)
+			}
+
+			value, exists := obj["optional"]
+			if !exists {
+				t.Fatalf("Expected 'optional' key not found")
+			}
+
+			if value != nil {
+				t.Errorf("Expected nil, got %v", value)
+			}
+		})
+	}
+}
+
+// TestParser_MixedTypes tests the parser's ability to parse objects with multiple data types.
+func TestParser_MixedTypes(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected map[string]any
+	}{
+		{
+			name:  "mixed primitive types",
+			input: `{"name": "John", "age": 30, "active": true, "data": null, "balance": -123.45}`,
+			expected: map[string]any{
+				"name":    "John",
+				"age":     int64(30),
+				"active":  true,
+				"data":    nil,
+				"balance": -123.45,
+			},
+		},
+		{
+			name:  "all number formats",
+			input: `{"int": 42, "float": 3.14, "scientific": 1.23e-4, "zero": 0, "negative": -789}`,
+			expected: map[string]any{
+				"int":        int64(42),
+				"float":      3.14,
+				"scientific": 1.23e-4,
+				"zero":       int64(0),
+				"negative":   int64(-789),
+			},
+		},
+		{
+			name:  "all boolean combinations",
+			input: `{"enabled": true, "disabled": false}`,
+			expected: map[string]any{
+				"enabled":  true,
+				"disabled": false,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := New(l)
+
+			result, err := p.Parse()
+			if err != nil {
+				t.Fatalf("Parse() returned error: %v", err)
+			}
+
+			obj, ok := result.(JSONObject)
+			if !ok {
+				t.Fatalf("Expected JSONObject, got %T", result)
+			}
+
+			// Check each expected key-value pair
+			for key, expectedValue := range tt.expected {
+				actualValue, exists := obj[key]
+				if !exists {
+					t.Errorf("Expected key '%s' not found", key)
+					continue
+				}
+
+				if expectedValue == nil {
+					if actualValue != nil {
+						t.Errorf("Key '%s': expected nil, got %v", key, actualValue)
+					}
+				} else if actualValue != expectedValue {
+					t.Errorf("Key '%s': expected %v (%T), got %v (%T)",
+						key, expectedValue, expectedValue, actualValue, actualValue)
+				}
+			}
+
+			// Check that we have the right number of keys
+			if len(obj) != len(tt.expected) {
+				t.Errorf("Expected %d keys, got %d", len(tt.expected), len(obj))
+			}
+		})
+	}
+}
+
+// TestParser_ArrayParsing tests the parser's ability to parse arrays correctly.
+func TestParser_ArrayParsing(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		expectedValue any
+		expectError   bool
+	}{
+		{
+			name:          "empty array",
+			input:         `{"items": []}`,
+			expectedValue: []any{},
+			expectError:   false,
+		},
+		{
+			name:          "array with numbers",
+			input:         `{"numbers": [1, 2, 3]}`,
+			expectedValue: []any{int64(1), int64(2), int64(3)},
+			expectError:   false,
+		},
+		{
+			name:          "array with strings",
+			input:         `{"names": ["Alice", "Bob", "Charlie"]}`,
+			expectedValue: []any{"Alice", "Bob", "Charlie"},
+			expectError:   false,
+		},
+		{
+			name:          "array with mixed types",
+			input:         `{"mixed": [1, "text", true, null]}`,
+			expectedValue: []any{int64(1), "text", true, nil},
+			expectError:   false,
+		},
+		{
+			name:          "array with floats",
+			input:         `{"floats": [1.5, 2.7, 3.14]}`,
+			expectedValue: []any{1.5, 2.7, 3.14},
+			expectError:   false,
+		},
+		{
+			name:          "nested empty arrays",
+			input:         `{"nested": [[], []]}`,
+			expectedValue: []any{[]any{}, []any{}},
+			expectError:   false,
+		},
+		{
+			name:        "trailing comma",
+			input:       `{"items": [1, 2, 3,]}`,
+			expectError: true,
+		},
+		{
+			name:        "missing comma",
+			input:       `{"items": [1 2 3]}`,
+			expectError: true,
+		},
+		{
+			name:        "missing closing bracket",
+			input:       `{"items": [1, 2, 3}`,
+			expectError: true,
+		},
+		{
+			name:        "missing opening bracket",
+			input:       `{"items": 1, 2, 3]}`,
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := New(l)
+
+			result, err := p.Parse()
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Parse() returned error: %v", err)
+			}
+
+			obj, ok := result.(JSONObject)
+			if !ok {
+				t.Fatalf("Expected JSONObject, got %T", result)
+			}
+
+			// Get the array value from the object
+			var arrayKey string
+			for key := range obj {
+				arrayKey = key
+				break
+			}
+
+			actualValue := obj[arrayKey]
+			if !deepEqualValue(actualValue, tt.expectedValue) {
+				t.Errorf("Expected %v (%T), got %v (%T)", tt.expectedValue, tt.expectedValue, actualValue, actualValue)
+			}
+		})
+	}
+}
+
+// TestParser_NestedStructures tests parsing of nested objects and arrays.
+func TestParser_NestedStructures(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		expectedValue any
+		expectError   bool
+	}{
+		{
+			name:  "nested objects",
+			input: `{"person": {"name": "John", "age": 30}}`,
+			expectedValue: map[string]any{
+				"person": map[string]any{
+					"name": "John",
+					"age":  int64(30),
+				},
+			},
+			expectError: false,
+		},
+		{
+			name:  "objects in array",
+			input: `{"users": [{"name": "Alice"}, {"name": "Bob"}]}`,
+			expectedValue: map[string]any{
+				"users": []any{
+					map[string]any{"name": "Alice"},
+					map[string]any{"name": "Bob"},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name:  "arrays in objects",
+			input: `{"data": {"items": [1, 2, 3]}}`,
+			expectedValue: map[string]any{
+				"data": map[string]any{
+					"items": []any{int64(1), int64(2), int64(3)},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name:  "deeply nested",
+			input: `{"a": {"b": {"c": "deep"}}}`,
+			expectedValue: map[string]any{
+				"a": map[string]any{
+					"b": map[string]any{
+						"c": "deep",
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name:          "array of objects",
+			input:         `[{"id": 1}, {"id": 2}]`,
+			expectedValue: []any{map[string]any{"id": int64(1)}, map[string]any{"id": int64(2)}},
+			expectError:   false,
+		},
+		{
+			name:          "array of arrays",
+			input:         `[[1, 2], [3, 4]]`,
+			expectedValue: []any{[]any{int64(1), int64(2)}, []any{int64(3), int64(4)}},
+			expectError:   false,
+		},
+		{
+			name:  "empty nested structures",
+			input: `{"obj": {}, "arr": []}`,
+			expectedValue: map[string]any{
+				"obj": map[string]any{},
+				"arr": []any{},
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := New(l)
+
+			result, err := p.Parse()
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Parse() returned error: %v", err)
+			}
+
+			if !deepEqualValue(result, tt.expectedValue) {
+				t.Errorf("Expected %v, got %v", tt.expectedValue, result)
+			}
+		})
+	}
+}
+
+// TestParser_TypeAssertions tests that we can properly assert types from parsed values.
+func TestParser_TypeAssertions(t *testing.T) {
+	input := `{"str": "hello", "num": 42, "float": 3.14, "bool": true, "null": null}`
+
+	l := lexer.New(input)
+	p := New(l)
+
+	result, err := p.Parse()
+	if err != nil {
+		t.Fatalf("Parse() returned error: %v", err)
+	}
+
+	obj, ok := result.(JSONObject)
+	if !ok {
+		t.Fatalf("Expected JSONObject, got %T", result)
+	}
+
+	// Test string assertion
+	if strVal, ok := obj["str"].(string); !ok || strVal != "hello" {
+		t.Errorf("String assertion failed: got %v (%T)", obj["str"], obj["str"])
+	}
+
+	// Test int64 assertion
+	if intVal, ok := obj["num"].(int64); !ok || intVal != 42 {
+		t.Errorf("Int64 assertion failed: got %v (%T)", obj["num"], obj["num"])
+	}
+
+	// Test float64 assertion
+	if floatVal, ok := obj["float"].(float64); !ok || floatVal != 3.14 {
+		t.Errorf("Float64 assertion failed: got %v (%T)", obj["float"], obj["float"])
+	}
+
+	// Test bool assertion
+	if boolVal, ok := obj["bool"].(bool); !ok || boolVal != true {
+		t.Errorf("Bool assertion failed: got %v (%T)", obj["bool"], obj["bool"])
+	}
+
+	// Test nil assertion
+	if obj["null"] != nil {
+		t.Errorf("Nil assertion failed: got %v (%T)", obj["null"], obj["null"])
+	}
 }

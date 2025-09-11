@@ -1,7 +1,7 @@
 package parser
 
 import (
-	"fmt"
+	"strconv"
 
 	"github.com/VuNe/json-parser/internal/lexer"
 )
@@ -90,19 +90,12 @@ func (p *parser) Parse() (JSONValue, error) {
 	return value, nil
 }
 
-// ParseValue parses a JSON value (for Step 1, only empty objects).
+// ParseValue parses a JSON value (supports objects, arrays, and all primitive types).
 func (p *parser) ParseValue() (JSONValue, error) {
-	switch p.currentToken.Type {
-	case lexer.LEFT_BRACE:
-		return p.parseObject()
-	case lexer.EOF:
-		return nil, NewParseError("unexpected end of input", p.currentToken)
-	default:
-		return nil, NewParseError("expected JSON value", p.currentToken)
-	}
+	return p.parseValue()
 }
 
-// parseObject parses a JSON object (for Step 1, only empty objects).
+// parseObject parses a JSON object with string key-value pairs.
 func (p *parser) parseObject() (JSONValue, error) {
 	if p.currentToken.Type != lexer.LEFT_BRACE {
 		return nil, NewParseError("expected '{'", p.currentToken)
@@ -116,27 +109,176 @@ func (p *parser) parseObject() (JSONValue, error) {
 		return nil, p.newSyntaxError("unterminated object", []string{"'}'"}, SuggestionCloseObject)
 	}
 
-	// For Step 1, we only support empty objects
-	// Check if the next token is a closing brace
+	obj := NewJSONObject()
+
+	// Check if it's an empty object
 	if p.currentToken.Type == lexer.RIGHT_BRACE {
-		// This is an empty object {}
 		p.nextToken() // consume the closing brace
-		return NewEmptyObject(), nil
+		return obj, nil
 	}
 
-	// If we get here, it means there's content inside the braces
-	// For Step 1, this is not supported
-	return nil, NewParseError("non-empty objects are not supported in Step 1", p.currentToken)
+	// Parse key-value pairs
+	for {
+		// Expect string key
+		if p.currentToken.Type != lexer.STRING {
+			return nil, NewParseError("expected string key", p.currentToken)
+		}
+
+		key := p.currentToken.Value
+		p.nextToken()
+
+		// Expect colon
+		if p.currentToken.Type != lexer.COLON {
+			return nil, NewParseError("expected ':'", p.currentToken)
+		}
+		p.nextToken()
+
+		// Parse value (supports all JSON types)
+		value, err := p.parseValue()
+		if err != nil {
+			return nil, err
+		}
+
+		obj[key] = value
+
+		// Check for comma or closing brace
+		if p.currentToken.Type == lexer.RIGHT_BRACE {
+			p.nextToken() // consume the closing brace
+			break
+		} else if p.currentToken.Type == lexer.COMMA {
+			p.nextToken() // consume the comma
+
+			// After comma, we must have another key-value pair or it's an error
+			if p.currentToken.Type == lexer.RIGHT_BRACE {
+				return nil, NewParseError("trailing comma not allowed", p.currentToken)
+			}
+		} else {
+			return nil, NewParseError("expected ',' or '}'", p.currentToken)
+		}
+	}
+
+	return obj, nil
 }
 
-// expectToken checks if the current token matches the expected type and advances.
-func (p *parser) expectToken(expected lexer.TokenType) error {
-	if p.currentToken.Type != expected {
-		return NewParseError(
-			fmt.Sprintf("expected %s, got %s", expected, p.currentToken.Type),
-			p.currentToken,
-		)
+// parseArray parses a JSON array with comma-separated values.
+func (p *parser) parseArray() (JSONValue, error) {
+	if p.currentToken.Type != lexer.LEFT_BRACKET {
+		return nil, NewParseError("expected '['", p.currentToken)
 	}
+
+	// Move past the opening bracket
 	p.nextToken()
-	return nil
+
+	// Check if we hit EOF before finding the closing bracket
+	if p.currentToken.Type == lexer.EOF {
+		return nil, NewParseError("expected ']'", p.currentToken)
+	}
+
+	var arr []any
+
+	// Check if it's an empty array
+	if p.currentToken.Type == lexer.RIGHT_BRACKET {
+		p.nextToken() // consume the closing bracket
+		return arr, nil
+	}
+
+	// Parse array elements
+	for {
+		// Parse value
+		value, err := p.parseValue()
+		if err != nil {
+			return nil, err
+		}
+
+		arr = append(arr, value)
+
+		// Check for comma or closing bracket
+		if p.currentToken.Type == lexer.RIGHT_BRACKET {
+			p.nextToken() // consume the closing bracket
+			break
+		} else if p.currentToken.Type == lexer.COMMA {
+			p.nextToken() // consume the comma
+
+			// After comma, we must have another value or it's an error
+			if p.currentToken.Type == lexer.RIGHT_BRACKET {
+				return nil, NewParseError("trailing comma not allowed", p.currentToken)
+			}
+		} else {
+			return nil, NewParseError("expected ',' or ']'", p.currentToken)
+		}
+	}
+
+	return arr, nil
+}
+
+// parseValue parses a JSON value (supports objects, arrays, strings, numbers, booleans, and null).
+func (p *parser) parseValue() (JSONValue, error) {
+	switch p.currentToken.Type {
+	case lexer.LEFT_BRACE:
+		return p.parseObject()
+	case lexer.LEFT_BRACKET:
+		return p.parseArray()
+	case lexer.STRING:
+		value := p.currentToken.Value
+		p.nextToken()
+		return value, nil
+	case lexer.NUMBER:
+		return p.parseNumber()
+	case lexer.BOOLEAN:
+		return p.parseBoolean()
+	case lexer.NULL:
+		return p.parseNull()
+	case lexer.EOF:
+		return nil, NewParseError("unexpected end of input", p.currentToken)
+	case lexer.INVALID, lexer.RIGHT_BRACE, lexer.RIGHT_BRACKET, lexer.COLON, lexer.COMMA:
+		return nil, NewParseError("expected JSON value", p.currentToken)
+	default:
+		return nil, NewParseError("expected JSON value", p.currentToken)
+	}
+}
+
+// parseNumber parses a JSON number token and returns the appropriate Go type.
+func (p *parser) parseNumber() (JSONValue, error) {
+	value := p.currentToken.Value
+	p.nextToken()
+
+	// Try to parse as integer first
+	if intVal, err := strconv.ParseInt(value, 10, 64); err == nil {
+		return intVal, nil
+	}
+
+	// If integer parsing fails, try float64
+	if floatVal, err := strconv.ParseFloat(value, 64); err == nil {
+		return floatVal, nil
+	}
+
+	// If both fail, return error
+	return nil, NewParseError("invalid number format", p.currentToken)
+}
+
+// parseBoolean parses a JSON boolean token.
+func (p *parser) parseBoolean() (JSONValue, error) {
+	value := p.currentToken.Value
+	p.nextToken()
+
+	switch value {
+	case "true":
+		return true, nil
+	case "false":
+		return false, nil
+	default:
+		return nil, NewParseError("invalid boolean value", p.currentToken)
+	}
+}
+
+// parseNull parses a JSON null token.
+func (p *parser) parseNull() (JSONValue, error) {
+	value := p.currentToken.Value
+	p.nextToken()
+
+	if value == "null" {
+		return nil, nil
+	}
+
+	return nil, NewParseError("invalid null value", p.currentToken)
 }

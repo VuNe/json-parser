@@ -13,10 +13,10 @@ const (
 	// JSON structural tokens
 	LEFT_BRACE    // {
 	RIGHT_BRACE   // }
-	LEFT_BRACKET  // [  (for future use)
-	RIGHT_BRACKET // ]  (for future use)
-	COLON         // :  (for future use)
-	COMMA         // ,  (for future use)
+	LEFT_BRACKET  // [
+	RIGHT_BRACKET // ]
+	COLON         // :
+	COMMA         // ,
 
 	// JSON value tokens (for future use)
 	STRING  // "string"
