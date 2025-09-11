@@ -56,10 +56,10 @@ func TestCLIIntegration(t *testing.T) {
 
 	t.Run("InvalidJSONFiles", func(t *testing.T) {
 		invalidFiles := map[string]string{
-			"trailing_comma.json":    `{"key": "value",}`,
-			"missing_colon.json":     `{"key" "value"}`,
-			"unterminated.json":      `{"key": "value"`,
-			"invalid_number.json":    `{"num": 123.}`,
+			"trailing_comma.json":      `{"key": "value",}`,
+			"missing_colon.json":       `{"key" "value"}`,
+			"unterminated.json":        `{"key": "value"`,
+			"invalid_number.json":      `{"num": 123.}`,
 			"mismatched_brackets.json": `{"array": [1, 2, 3}`,
 		}
 
@@ -74,7 +74,7 @@ func TestCLIIntegration(t *testing.T) {
 				cmd.Stderr = &stderr
 
 				err := cmd.Run()
-				
+
 				// Should exit with error for invalid JSON
 				if err == nil {
 					t.Errorf("Command should have failed for invalid JSON %s", filename)
@@ -167,17 +167,17 @@ func TestCLIWithTestDataFiles(t *testing.T) {
 
 			t.Run(file.Name(), func(t *testing.T) {
 				filePath := filepath.Join(testDir, file.Name())
-				
+
 				cmd := exec.Command(binaryPath, filePath)
 				var stdout, stderr bytes.Buffer
 				cmd.Stdout = &stdout
 				cmd.Stderr = &stderr
 
 				err := cmd.Run()
-				
+
 				// Determine expected result based on filename
 				shouldPass := strings.Contains(file.Name(), "valid_")
-				
+
 				if shouldPass {
 					if err != nil {
 						t.Errorf("Valid file %s should have passed: %v", file.Name(), err)
@@ -257,7 +257,7 @@ func TestStressTest(t *testing.T) {
 		if i > 0 {
 			largeJSON.WriteString(`, `)
 		}
-		largeJSON.WriteString(fmt.Sprintf(`{"id": %d, "name": "item_%d", "data": [%d, %d, %d]}`, 
+		largeJSON.WriteString(fmt.Sprintf(`{"id": %d, "name": "item_%d", "data": [%d, %d, %d]}`,
 			i, i, i*1, i*2, i*3))
 	}
 	largeJSON.WriteString(`]}`)
@@ -285,28 +285,28 @@ func TestStressTest(t *testing.T) {
 
 func buildBinary(t *testing.T) string {
 	binaryPath := filepath.Join(t.TempDir(), "json-parser-test")
-	
+
 	// Build the binary
 	cmd := exec.Command("go", "build", "-o", binaryPath, "./cmd/json-parser")
 	cmd.Dir = ".."
-	
+
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
-	
+
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to build binary: %v\nStderr: %s", err, stderr.String())
 	}
-	
+
 	return binaryPath
 }
 
 func createTempFile(t *testing.T, name, content string) string {
 	tempDir := t.TempDir()
 	filePath := filepath.Join(tempDir, name)
-	
+
 	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
 		t.Fatalf("Failed to create temp file %s: %v", name, err)
 	}
-	
+
 	return filePath
 }

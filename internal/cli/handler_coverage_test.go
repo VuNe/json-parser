@@ -83,7 +83,7 @@ func TestHandler_MalformedFiles(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := New()
-			
+
 			// Create temp file with malformed content
 			tempFile := filepath.Join(t.TempDir(), "malformed.json")
 			err := os.WriteFile(tempFile, []byte(tt.content), 0644)
@@ -115,7 +115,7 @@ func TestHandler_UnicodeFile(t *testing.T) {
 		"unicode_escape": "\u0041\u0042\u0043",
 		"mixed": "Hello 世界 🌍"
 	}`
-	
+
 	err := os.WriteFile(tempFile, []byte(unicodeContent), 0644)
 	if err != nil {
 		t.Fatalf("failed to write temp file: %v", err)
@@ -147,7 +147,7 @@ func TestHandler_EmptyAndWhitespaceFiles(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := New()
-			
+
 			tempFile := filepath.Join(t.TempDir(), "test.json")
 			err := os.WriteFile(tempFile, []byte(tt.content), 0644)
 			if err != nil {

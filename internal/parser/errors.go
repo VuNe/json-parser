@@ -32,15 +32,15 @@ func (et ErrorType) String() string {
 
 // ParseError represents an enhanced error that occurred during parsing.
 type ParseError struct {
-	Type         ErrorType
-	Message      string
-	Position     lexer.Position
-	Token        lexer.Token
-	Expected     []string // What was expected
-	Found        string   // What was actually found
-	JSONSnippet  string   // Snippet of JSON around the error
-	Suggestion   string   // Recovery suggestion
-	SourceInput  string   // Original input for context
+	Type        ErrorType
+	Message     string
+	Position    lexer.Position
+	Token       lexer.Token
+	Expected    []string // What was expected
+	Found       string   // What was actually found
+	JSONSnippet string   // Snippet of JSON around the error
+	Suggestion  string   // Recovery suggestion
+	SourceInput string   // Original input for context
 }
 
 // Error implements the error interface with enhanced formatting.
@@ -95,7 +95,7 @@ func NewDetailedParseError(errorType ErrorType, message string, token lexer.Toke
 
 	// Generate JSON snippet with position marker
 	pe.JSONSnippet = pe.generateJSONSnippet()
-	
+
 	return pe
 }
 
@@ -127,33 +127,33 @@ func (e *ParseError) generateJSONSnippet() string {
 
 	lineIdx := e.Position.Line - 1
 	line := lines[lineIdx]
-	
+
 	// Create a snippet showing the problematic line with a pointer
 	var snippet strings.Builder
-	
+
 	// Add line number and content
 	snippet.WriteString(fmt.Sprintf("%d| %s\n", e.Position.Line, line))
-	
+
 	// Add pointer line showing where the error occurred
 	pointer := strings.Repeat(" ", len(fmt.Sprintf("%d| ", e.Position.Line)))
 	if e.Position.Column > 0 && e.Position.Column <= len(line) {
 		pointer += strings.Repeat(" ", e.Position.Column-1) + "^"
 	}
 	snippet.WriteString(pointer)
-	
+
 	return snippet.String()
 }
 
 // Common error suggestions
 const (
-	SuggestionMissingColon       = "Add a ':' after the object key"
-	SuggestionMissingComma       = "Add a ',' between object properties or array elements"
+	SuggestionMissingColon        = "Add a ':' after the object key"
+	SuggestionMissingComma        = "Add a ',' between object properties or array elements"
 	SuggestionRemoveTrailingComma = "Remove the trailing comma before closing '}' or ']'"
-	SuggestionCloseString        = "Add a closing quote '\"' to terminate the string"
-	SuggestionEscapeCharacter    = "Escape special characters with a backslash '\\'"
-	SuggestionValidNumber        = "Ensure numbers follow JSON format (no leading zeros, proper decimal/exponent notation)"
-	SuggestionCloseObject        = "Add a closing '}' to complete the object"
-	SuggestionCloseArray         = "Add a closing ']' to complete the array"
-	SuggestionStringKey          = "Object keys must be strings enclosed in double quotes"
-	SuggestionValidKeyword       = "Use lowercase for JSON keywords: 'true', 'false', 'null'"
+	SuggestionCloseString         = "Add a closing quote '\"' to terminate the string"
+	SuggestionEscapeCharacter     = "Escape special characters with a backslash '\\'"
+	SuggestionValidNumber         = "Ensure numbers follow JSON format (no leading zeros, proper decimal/exponent notation)"
+	SuggestionCloseObject         = "Add a closing '}' to complete the object"
+	SuggestionCloseArray          = "Add a closing ']' to complete the array"
+	SuggestionStringKey           = "Object keys must be strings enclosed in double quotes"
+	SuggestionValidKeyword        = "Use lowercase for JSON keywords: 'true', 'false', 'null'"
 )

@@ -13,7 +13,7 @@ import (
 func TestOfficialJSONTestSuite(t *testing.T) {
 	// Get test data directory
 	testDataDir := filepath.Join("..", "..", "test", "external", "test", "external", "json_org")
-	
+
 	// Check if test directory exists
 	if _, err := os.Stat(testDataDir); os.IsNotExist(err) {
 		t.Skip("External test data not found, skipping official test suite")
@@ -97,7 +97,7 @@ func TestOfficialJSONTestSuite(t *testing.T) {
 // TestOfficialJSONTestSuitePerformance runs performance tests on larger JSON files
 func TestOfficialJSONTestSuitePerformance(t *testing.T) {
 	testDataDir := filepath.Join("..", "..", "test", "external", "test", "external", "json_org")
-	
+
 	performanceTests := []string{
 		"valid_deep_nesting.json",
 		"valid_long_string.json",
@@ -123,7 +123,7 @@ func TestOfficialJSONTestSuitePerformance(t *testing.T) {
 					t.Errorf("Performance test %s iteration %d failed: %v", testFile, i, err)
 					break
 				}
-				
+
 				// Verify result is consistent (basic check)
 				if result == nil && !strings.Contains(string(content), "null") {
 					t.Errorf("Performance test %s iteration %d returned unexpected nil", testFile, i)
@@ -265,7 +265,7 @@ func generateVeryDeepNesting(depth int) string {
 // TestExternalTestSuiteCoverage ensures we test a comprehensive range of cases
 func TestExternalTestSuiteCoverage(t *testing.T) {
 	testDataDir := filepath.Join("..", "..", "test", "external", "test", "external", "json_org")
-	
+
 	// Count test files by category
 	files, err := os.ReadDir(testDataDir)
 	if err != nil {

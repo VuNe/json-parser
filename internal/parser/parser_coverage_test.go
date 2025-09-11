@@ -111,7 +111,7 @@ func TestParser_ErrorRecoveryAndSuggestions(t *testing.T) {
 			expectedType: "Syntax error",
 		},
 		{
-			name:         "trailing comma basic error", 
+			name:         "trailing comma basic error",
 			input:        `{"key": "value",}`,
 			expectedType: "Syntax error",
 		},
@@ -140,7 +140,7 @@ func TestParser_ErrorRecoveryAndSuggestions(t *testing.T) {
 			}
 
 			errorStr := err.Error()
-			
+
 			// Check error type
 			if !containsSubstring(errorStr, tt.expectedType) {
 				t.Errorf("expected error type %q in error: %v", tt.expectedType, errorStr)
@@ -158,7 +158,7 @@ func TestParser_ErrorRecoveryAndSuggestions(t *testing.T) {
 func TestParser_MemoryAndPerformance(t *testing.T) {
 	// Test with a reasonably large but not excessive JSON
 	largeJSON := generateLargeJSON(100) // 100 nested levels
-	
+
 	l := lexer.New(largeJSON)
 	p := New(l)
 
@@ -186,7 +186,7 @@ func TestParser_ConcurrentParsing(t *testing.T) {
 	for i, input := range inputs {
 		t.Run(fmt.Sprintf("concurrent_%d", i), func(t *testing.T) {
 			t.Parallel() // Run tests in parallel
-			
+
 			l := lexer.New(input)
 			p := New(l)
 
