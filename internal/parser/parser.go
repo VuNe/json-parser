@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/VuNe/json-parser/internal/lexer"
 )
@@ -130,7 +131,7 @@ func (p *parser) parseObject() (JSONValue, error) {
 	return obj, nil
 }
 
-// parseValue parses a JSON value (for Step 2, supports objects and strings).
+// parseValue parses a JSON value (supports objects, strings, numbers, booleans, and null).
 func (p *parser) parseValue() (JSONValue, error) {
 	switch p.currentToken.Type {
 	case lexer.LEFT_BRACE:
@@ -139,11 +140,63 @@ func (p *parser) parseValue() (JSONValue, error) {
 		value := p.currentToken.Value
 		p.nextToken()
 		return value, nil
+	case lexer.NUMBER:
+		return p.parseNumber()
+	case lexer.BOOLEAN:
+		return p.parseBoolean()
+	case lexer.NULL:
+		return p.parseNull()
 	case lexer.EOF:
 		return nil, NewParseError("unexpected end of input", p.currentToken)
 	default:
 		return nil, NewParseError("expected JSON value", p.currentToken)
 	}
+}
+
+// parseNumber parses a JSON number token and returns the appropriate Go type.
+func (p *parser) parseNumber() (JSONValue, error) {
+	value := p.currentToken.Value
+	p.nextToken()
+
+	// Try to parse as integer first
+	if intVal, err := strconv.ParseInt(value, 10, 64); err == nil {
+		return intVal, nil
+	}
+
+	// If integer parsing fails, try float64
+	if floatVal, err := strconv.ParseFloat(value, 64); err == nil {
+		return floatVal, nil
+	}
+
+	// If both fail, return error
+	return nil, NewParseError("invalid number format", p.currentToken)
+}
+
+// parseBoolean parses a JSON boolean token.
+func (p *parser) parseBoolean() (JSONValue, error) {
+	value := p.currentToken.Value
+	p.nextToken()
+
+	switch value {
+	case "true":
+		return true, nil
+	case "false":
+		return false, nil
+	default:
+		return nil, NewParseError("invalid boolean value", p.currentToken)
+	}
+}
+
+// parseNull parses a JSON null token.
+func (p *parser) parseNull() (JSONValue, error) {
+	value := p.currentToken.Value
+	p.nextToken()
+
+	if value == "null" {
+		return nil, nil
+	}
+
+	return nil, NewParseError("invalid null value", p.currentToken)
 }
 
 // expectToken checks if the current token matches the expected type and advances.

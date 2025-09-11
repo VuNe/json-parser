@@ -459,3 +459,296 @@ func findSubstring(s, substr string) bool {
 	}
 	return false
 }
+
+// TestLexer_NumberTokenization tests the lexer's ability to tokenize numbers correctly.
+func TestLexer_NumberTokenization(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          string
+		expectedTokens []Token
+	}{
+		{
+			name:  "positive integer",
+			input: "123",
+			expectedTokens: []Token{
+				{Type: NUMBER, Value: "123", Position: Position{Line: 1, Column: 1, Offset: 0}},
+				{Type: EOF, Value: "", Position: Position{Line: 1, Column: 4, Offset: 3}},
+			},
+		},
+		{
+			name:  "negative integer",
+			input: "-456",
+			expectedTokens: []Token{
+				{Type: NUMBER, Value: "-456", Position: Position{Line: 1, Column: 1, Offset: 0}},
+				{Type: EOF, Value: "", Position: Position{Line: 1, Column: 5, Offset: 4}},
+			},
+		},
+		{
+			name:  "zero",
+			input: "0",
+			expectedTokens: []Token{
+				{Type: NUMBER, Value: "0", Position: Position{Line: 1, Column: 1, Offset: 0}},
+				{Type: EOF, Value: "", Position: Position{Line: 1, Column: 2, Offset: 1}},
+			},
+		},
+		{
+			name:  "positive float",
+			input: "123.45",
+			expectedTokens: []Token{
+				{Type: NUMBER, Value: "123.45", Position: Position{Line: 1, Column: 1, Offset: 0}},
+				{Type: EOF, Value: "", Position: Position{Line: 1, Column: 7, Offset: 6}},
+			},
+		},
+		{
+			name:  "negative float",
+			input: "-67.89",
+			expectedTokens: []Token{
+				{Type: NUMBER, Value: "-67.89", Position: Position{Line: 1, Column: 1, Offset: 0}},
+				{Type: EOF, Value: "", Position: Position{Line: 1, Column: 7, Offset: 6}},
+			},
+		},
+		{
+			name:  "float starting with zero",
+			input: "0.123",
+			expectedTokens: []Token{
+				{Type: NUMBER, Value: "0.123", Position: Position{Line: 1, Column: 1, Offset: 0}},
+				{Type: EOF, Value: "", Position: Position{Line: 1, Column: 6, Offset: 5}},
+			},
+		},
+		{
+			name:  "scientific notation positive exponent",
+			input: "1.23e+10",
+			expectedTokens: []Token{
+				{Type: NUMBER, Value: "1.23e+10", Position: Position{Line: 1, Column: 1, Offset: 0}},
+				{Type: EOF, Value: "", Position: Position{Line: 1, Column: 9, Offset: 8}},
+			},
+		},
+		{
+			name:  "scientific notation negative exponent",
+			input: "1.23e-4",
+			expectedTokens: []Token{
+				{Type: NUMBER, Value: "1.23e-4", Position: Position{Line: 1, Column: 1, Offset: 0}},
+				{Type: EOF, Value: "", Position: Position{Line: 1, Column: 8, Offset: 7}},
+			},
+		},
+		{
+			name:  "scientific notation uppercase E",
+			input: "6.022E23",
+			expectedTokens: []Token{
+				{Type: NUMBER, Value: "6.022E23", Position: Position{Line: 1, Column: 1, Offset: 0}},
+				{Type: EOF, Value: "", Position: Position{Line: 1, Column: 9, Offset: 8}},
+			},
+		},
+		{
+			name:  "integer scientific notation",
+			input: "1E+10",
+			expectedTokens: []Token{
+				{Type: NUMBER, Value: "1E+10", Position: Position{Line: 1, Column: 1, Offset: 0}},
+				{Type: EOF, Value: "", Position: Position{Line: 1, Column: 6, Offset: 5}},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lexer := New(tt.input)
+
+			for i, expectedToken := range tt.expectedTokens {
+				token, err := lexer.NextToken()
+				if err != nil {
+					t.Fatalf("NextToken() returned error: %v", err)
+				}
+
+				if token.Type != expectedToken.Type {
+					t.Errorf("token[%d].Type = %v, expected %v", i, token.Type, expectedToken.Type)
+				}
+
+				if token.Value != expectedToken.Value {
+					t.Errorf("token[%d].Value = %q, expected %q", i, token.Value, expectedToken.Value)
+				}
+
+				if token.Position != expectedToken.Position {
+					t.Errorf("token[%d].Position = %v, expected %v", i, token.Position, expectedToken.Position)
+				}
+			}
+		})
+	}
+}
+
+// TestLexer_InvalidNumbers tests the lexer's ability to detect invalid number formats.
+func TestLexer_InvalidNumbers(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:        "leading zero",
+			input:       "01",
+			expectError: true,
+			errorMsg:    "numbers cannot have leading zeros",
+		},
+		{
+			name:        "trailing decimal point",
+			input:       "3.",
+			expectError: true,
+			errorMsg:    "missing digits after decimal point",
+		},
+		{
+			name:        "incomplete exponent",
+			input:       "1.23e",
+			expectError: true,
+			errorMsg:    "missing digits in exponent",
+		},
+		{
+			name:        "invalid exponent sign",
+			input:       "1.23e+",
+			expectError: true,
+			errorMsg:    "missing digits in exponent",
+		},
+		{
+			name:        "minus without digits",
+			input:       "-",
+			expectError: true,
+			errorMsg:    "invalid number format",
+		},
+		{
+			name:        "multiple decimal points",
+			input:       "1.2.3",
+			expectError: false, // This would be parsed as "1.2" and then "3" would be unexpected
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lexer := New(tt.input)
+			token, err := lexer.NextToken()
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("Expected error but got none. Token: %v", token)
+				} else if !containsSubstring(err.Error(), tt.errorMsg) {
+					t.Errorf("Error message %q does not contain %q", err.Error(), tt.errorMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// TestLexer_BooleanAndNull tests the lexer's ability to tokenize boolean and null values.
+func TestLexer_BooleanAndNull(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          string
+		expectedTokens []Token
+	}{
+		{
+			name:  "true keyword",
+			input: "true",
+			expectedTokens: []Token{
+				{Type: BOOLEAN, Value: "true", Position: Position{Line: 1, Column: 1, Offset: 0}},
+				{Type: EOF, Value: "", Position: Position{Line: 1, Column: 5, Offset: 4}},
+			},
+		},
+		{
+			name:  "false keyword",
+			input: "false",
+			expectedTokens: []Token{
+				{Type: BOOLEAN, Value: "false", Position: Position{Line: 1, Column: 1, Offset: 0}},
+				{Type: EOF, Value: "", Position: Position{Line: 1, Column: 6, Offset: 5}},
+			},
+		},
+		{
+			name:  "null keyword",
+			input: "null",
+			expectedTokens: []Token{
+				{Type: NULL, Value: "null", Position: Position{Line: 1, Column: 1, Offset: 0}},
+				{Type: EOF, Value: "", Position: Position{Line: 1, Column: 5, Offset: 4}},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lexer := New(tt.input)
+
+			for i, expectedToken := range tt.expectedTokens {
+				token, err := lexer.NextToken()
+				if err != nil {
+					t.Fatalf("NextToken() returned error: %v", err)
+				}
+
+				if token.Type != expectedToken.Type {
+					t.Errorf("token[%d].Type = %v, expected %v", i, token.Type, expectedToken.Type)
+				}
+
+				if token.Value != expectedToken.Value {
+					t.Errorf("token[%d].Value = %q, expected %q", i, token.Value, expectedToken.Value)
+				}
+
+				if token.Position != expectedToken.Position {
+					t.Errorf("token[%d].Position = %v, expected %v", i, token.Position, expectedToken.Position)
+				}
+			}
+		})
+	}
+}
+
+// TestLexer_InvalidKeywords tests the lexer's ability to detect invalid keywords.
+func TestLexer_InvalidKeywords(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:        "True (wrong case)",
+			input:       "True",
+			expectError: true,
+			errorMsg:    "invalid keyword 'True'",
+		},
+		{
+			name:        "FALSE (wrong case)",
+			input:       "FALSE",
+			expectError: true,
+			errorMsg:    "invalid keyword 'FALSE'",
+		},
+		{
+			name:        "NULL (wrong case)",
+			input:       "NULL",
+			expectError: true,
+			errorMsg:    "invalid keyword 'NULL'",
+		},
+		{
+			name:        "invalid keyword",
+			input:       "undefined",
+			expectError: true,
+			errorMsg:    "invalid keyword 'undefined'",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lexer := New(tt.input)
+			token, err := lexer.NextToken()
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("Expected error but got none. Token: %v", token)
+				} else if !containsSubstring(err.Error(), tt.errorMsg) {
+					t.Errorf("Error message %q does not contain %q", err.Error(), tt.errorMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}

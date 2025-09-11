@@ -89,13 +89,20 @@ func (l *lexer) NextToken() (Token, error) {
 	case 0:
 		tok = Token{Type: EOF, Value: "", Position: l.position}
 	default:
-		// Check if it's a valid JSON character that we don't support yet
-		if unicode.IsPrint(rune(l.ch)) {
-			return Token{Type: INVALID, Value: string(l.ch), Position: l.position},
-				fmt.Errorf("unexpected character '%c' at %s", l.ch, l.position)
+		// Handle numbers, booleans, and null
+		if l.ch == '-' || (l.ch >= '0' && l.ch <= '9') {
+			return l.readNumber()
+		} else if isAlpha(l.ch) {
+			return l.readKeyword()
 		} else {
-			return Token{Type: INVALID, Value: fmt.Sprintf("\\x%02x", l.ch), Position: l.position},
-				fmt.Errorf("unexpected character '\\x%02x' at %s", l.ch, l.position)
+			// Check if it's a valid JSON character that we don't support yet
+			if unicode.IsPrint(rune(l.ch)) {
+				return Token{Type: INVALID, Value: string(l.ch), Position: l.position},
+					fmt.Errorf("unexpected character '%c' at %s", l.ch, l.position)
+			} else {
+				return Token{Type: INVALID, Value: fmt.Sprintf("\\x%02x", l.ch), Position: l.position},
+					fmt.Errorf("unexpected character '\\x%02x' at %s", l.ch, l.position)
+			}
 		}
 	}
 
@@ -214,4 +221,120 @@ func (l *lexer) readUnicodeEscape() ([]byte, error) {
 // isHexDigit returns true if the character is a valid hexadecimal digit.
 func isHexDigit(ch byte) bool {
 	return (ch >= '0' && ch <= '9') || (ch >= 'A' && ch <= 'F') || (ch >= 'a' && ch <= 'f')
+}
+
+// isAlpha returns true if the character is an alphabetic character.
+func isAlpha(ch byte) bool {
+	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
+}
+
+// isDigit returns true if the character is a digit.
+func isDigit(ch byte) bool {
+	return ch >= '0' && ch <= '9'
+}
+
+// readNumber reads a JSON number token with support for integers, floats, and scientific notation.
+func (l *lexer) readNumber() (Token, error) {
+	position := l.position // Save the starting position
+	var value []byte
+
+	// Handle optional minus sign
+	if l.ch == '-' {
+		value = append(value, l.ch)
+		l.readChar()
+
+		// After minus, we must have a digit
+		if !isDigit(l.ch) {
+			return Token{Type: INVALID, Value: string(value), Position: position},
+				fmt.Errorf("invalid number format at %s", position)
+		}
+	}
+
+	// Handle the integer part
+	if l.ch == '0' {
+		// If it starts with 0, it must be 0, 0.x, or 0ex (no leading zeros allowed)
+		value = append(value, l.ch)
+		l.readChar()
+
+		// Check if there's an invalid leading zero (like 01, 02, etc.)
+		if isDigit(l.ch) {
+			return Token{Type: INVALID, Value: string(value), Position: position},
+				fmt.Errorf("numbers cannot have leading zeros at %s", position)
+		}
+	} else {
+		// Read all digits for the integer part
+		for isDigit(l.ch) {
+			value = append(value, l.ch)
+			l.readChar()
+		}
+	}
+
+	// Handle optional fractional part
+	if l.ch == '.' {
+		value = append(value, l.ch)
+		l.readChar()
+
+		// After decimal point, we must have at least one digit
+		if !isDigit(l.ch) {
+			return Token{Type: INVALID, Value: string(value), Position: position},
+				fmt.Errorf("invalid number format: missing digits after decimal point at %s", position)
+		}
+
+		// Read all fractional digits
+		for isDigit(l.ch) {
+			value = append(value, l.ch)
+			l.readChar()
+		}
+	}
+
+	// Handle optional exponent part
+	if l.ch == 'e' || l.ch == 'E' {
+		value = append(value, l.ch)
+		l.readChar()
+
+		// Handle optional exponent sign
+		if l.ch == '+' || l.ch == '-' {
+			value = append(value, l.ch)
+			l.readChar()
+		}
+
+		// After exponent marker (and optional sign), we must have at least one digit
+		if !isDigit(l.ch) {
+			return Token{Type: INVALID, Value: string(value), Position: position},
+				fmt.Errorf("invalid number format: missing digits in exponent at %s", position)
+		}
+
+		// Read all exponent digits
+		for isDigit(l.ch) {
+			value = append(value, l.ch)
+			l.readChar()
+		}
+	}
+
+	return Token{Type: NUMBER, Value: string(value), Position: position}, nil
+}
+
+// readKeyword reads a JSON keyword (true, false, null).
+func (l *lexer) readKeyword() (Token, error) {
+	position := l.position // Save the starting position
+	var value []byte
+
+	// Read all alphabetic characters
+	for isAlpha(l.ch) {
+		value = append(value, l.ch)
+		l.readChar()
+	}
+
+	keyword := string(value)
+
+	// Validate the keyword
+	switch keyword {
+	case "true", "false":
+		return Token{Type: BOOLEAN, Value: keyword, Position: position}, nil
+	case "null":
+		return Token{Type: NULL, Value: keyword, Position: position}, nil
+	default:
+		return Token{Type: INVALID, Value: keyword, Position: position},
+			fmt.Errorf("invalid keyword '%s' at %s", keyword, position)
+	}
 }
