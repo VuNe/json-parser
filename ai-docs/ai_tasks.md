@@ -25,12 +25,16 @@
 - Fix any linting issues ✅
 
 ## Slice 3: Multiple Data Types (Step 3) ❌
-- Extend lexer to tokenize numbers, true/false, null keywords ❌
-- Add numeric parser for integers and floats ❌
-- Add boolean and null value parsing ❌
-- Extend parser to handle multiple data types as values ❌
-- Update unit tests for Step 3 ❌
-- Test against provided Step 3 test files ❌
+- Create Step 3 test data files for numbers, booleans, null values, and mixed types ❌
+- Extend lexer to tokenize numbers (integers, floats, scientific notation) with proper validation ❌
+- Extend lexer to tokenize boolean keywords (true/false) and null keyword ❌
+- Add numeric parser logic with proper Go type mapping (int64 for integers, float64 for floats) ❌
+- Add boolean and null value parsing with proper Go type mapping ❌
+- Update parser value dispatch logic to handle all JSON primitive types ❌
+- Add comprehensive unit tests for number, boolean, and null tokenization ❌
+- Add unit tests for mixed-type objects and proper type assertions ❌
+- Run integration tests with Step 3 test files and verify backward compatibility ❌
+- Implement comprehensive error handling for invalid numbers, keywords, and type validation ❌
 
 ## Slice 4: Nested Objects and Arrays (Step 4) ❌
 - Extend lexer to tokenize array brackets `[`, `]` ❌
