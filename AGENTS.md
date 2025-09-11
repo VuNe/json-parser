@@ -150,6 +150,9 @@ ABC-1/support_multiple_json_objects
 - Use `golangci-lint` for linting files.
 - Make sure that `golangci-lint` uses the top level `.golangci.yml` configuration.
 
+#### Developement Tool Rules
+- Do not use Power Shell if you are not working from a Windows machine.
+
 </coding-rules>
 
 
