@@ -52,7 +52,7 @@ func TestParser_Parse(t *testing.T) {
 			name:        "missing closing brace",
 			input:       "{",
 			expectError: true,
-			errorMsg:    "expected '}'",
+			errorMsg:    "unterminated object",
 		},
 		{
 			name:        "missing opening brace",
@@ -64,7 +64,7 @@ func TestParser_Parse(t *testing.T) {
 			name:        "extra content after valid JSON",
 			input:       "{}extra",
 			expectError: true,
-			errorMsg:    "expected EOF after JSON value",
+			errorMsg:    "unexpected content after JSON value",
 		},
 		{
 			name:        "non-empty object (not supported in Step 1)",
@@ -177,7 +177,7 @@ func TestParseError_Error(t *testing.T) {
 	}
 
 	// Check that the error contains expected components
-	expectedComponents := []string{"test error message", "line 1, column 1", "INVALID"}
+	expectedComponents := []string{"test error message", "line 1, column 1", "Syntax error"}
 	for _, component := range expectedComponents {
 		if !containsSubstring(errorStr, component) {
 			t.Errorf("error string %q should contain %q", errorStr, component)

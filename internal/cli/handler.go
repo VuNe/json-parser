@@ -50,9 +50,9 @@ func (h *handler) ParseFile(filename string) error {
 
 // ParseString parses the given JSON string.
 func (h *handler) ParseString(input string) error {
-	// Create lexer and parser
+	// Create lexer and parser with enhanced error reporting
 	lex := lexer.New(input)
-	p := parser.New(lex)
+	p := parser.NewWithInput(lex, input)
 
 	// Parse the JSON
 	_, err := p.Parse()

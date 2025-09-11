@@ -17,6 +17,7 @@ type parser struct {
 	lexer        lexer.Lexer
 	currentToken lexer.Token
 	peekToken    lexer.Token
+	sourceInput  string // Keep track of original input for enhanced error reporting
 }
 
 // New creates a new parser instance with the given lexer.
@@ -28,6 +29,35 @@ func New(l lexer.Lexer) Parser {
 	p.nextToken()
 
 	return p
+}
+
+// NewWithInput creates a new parser instance with the given lexer and keeps track of source input for enhanced error reporting.
+func NewWithInput(l lexer.Lexer, sourceInput string) Parser {
+	p := &parser{
+		lexer:       l,
+		sourceInput: sourceInput,
+	}
+
+	// Read two tokens, so currentToken and peekToken are both set
+	p.nextToken()
+	p.nextToken()
+
+	return p
+}
+
+// Enhanced error reporting helper methods
+func (p *parser) newSyntaxError(message string, expected []string, suggestion string) *ParseError {
+	if p.sourceInput != "" {
+		return NewSyntaxError(message, p.currentToken, expected, suggestion, p.sourceInput)
+	}
+	return NewParseError(message, p.currentToken)
+}
+
+func (p *parser) newSemanticError(message string, suggestion string) *ParseError {
+	if p.sourceInput != "" {
+		return NewSemanticError(message, p.currentToken, suggestion, p.sourceInput)
+	}
+	return NewParseError(message, p.currentToken)
 }
 
 // nextToken advances both currentToken and peekToken.
@@ -54,7 +84,7 @@ func (p *parser) Parse() (JSONValue, error) {
 
 	// Ensure we're at the end of input after parsing a valid value
 	if p.currentToken.Type != lexer.EOF {
-		return nil, NewParseError("expected EOF after JSON value", p.currentToken)
+		return nil, p.newSyntaxError("unexpected content after JSON value", []string{"EOF"}, "Remove any extra content after the JSON value")
 	}
 
 	return value, nil
@@ -83,7 +113,7 @@ func (p *parser) parseObject() (JSONValue, error) {
 
 	// Check if we hit EOF before finding the closing brace
 	if p.currentToken.Type == lexer.EOF {
-		return nil, NewParseError("expected '}'", p.currentToken)
+		return nil, p.newSyntaxError("unterminated object", []string{"'}'"}, SuggestionCloseObject)
 	}
 
 	// For Step 1, we only support empty objects
