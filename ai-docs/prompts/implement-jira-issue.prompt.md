@@ -1,8 +1,8 @@
 Implement a Jira issue.
 
-If the Jira issues key is not provided, please ask for it.
+If the Jira issues key is not provided, ask for it.
 
-Please follow the workflow below carefully to implement the Jira issue successfully.
+Follow the workflow below carefully to implement the Jira issue successfully.
 
 Always be aware of which step in the workflow we currently are in, so that you can proceed to the next step after for example iterating on a step.
 
@@ -21,8 +21,8 @@ Always be aware of which step in the workflow we currently are in, so that you c
 11. Make sure you have written unit tests for the implementation
 12. Update (or create) `README.md` and `docs/architecture.md` if necessary to reflect the changes made
 13. Ask the human developer to review the implementation. If applicable, provide the human developer with steps to test the implementation themselves.
-14. Once the human developer approves the implementation, please suggest a commit message based on the `<coding-rules>` for the human developer
-15. Once the human developer approves the commit message, please commit the changes
+14. Once the human developer approves the implementation, suggest a commit message based on the `<coding-rules>` for the human developer
+15. Once the human developer approves the commit message, commit the changes
 16. Push the changes to the remote repository
-17. Create a pull request for the changes using GitHub CLI. Please use `gh pr create --fill`
+17. Create a pull request for the changes using GitHub CLI. Use `gh pr create --fill`
 18. The task is now complete. Good job! Remember to provide the link to the pull request to the human developer.

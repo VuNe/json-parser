@@ -51,6 +51,10 @@ This is a repository hosting a json parser written in Go.
 - `ai-docs/ai_changelog.md`: Log of changes made by AI. Add concise summaries here.
 - `ai-docs/ai_learnings.md`: Technical learnings, best practices, error solutions. Add new findings here.
 
+### Design Documents
+
+- `docs/architecture.md`: The architecture of the JSON parser.
+
 ### important files at project root level  
 
 - `AGENTS.md`: AI agent instructions with core philosophy, behavioral rules, coding standards, and structured workflows.
@@ -204,7 +208,7 @@ Each workflow has the following sections:
   4. Gather further resources that are necessary for the task. If needed, perform actual web searches.
   5. If needed, perform actual web searches for more relevant information.
   6. Look for reference implementations for similar features in the code base.
-  7. Make sure you understand the task in the light of all the information you have. If the task is not clear, please ask for clarification at this point
+  7. Make sure you understand the task in the light of all the information you have. If the task is not clear, ask for clarification at this point
   8. Inform the user that we have completed this workflow in the format "_Completed workflow: **research**_"
 
 </research>
