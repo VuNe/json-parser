@@ -36,7 +36,7 @@ This is a repository hosting a json parser written in Go.
   - `githooks/` Git hooks
   - `assets/` other assets to go along with your repository (images, logos, etc)
   - `website/` this is the place to put your project's website data
-- **Build/Run**: `Makefile`
+- **Build/Run/Test**: `Makefile` if you find that something is missing from this file. Add it
 
 </project-structure>
 
@@ -107,9 +107,15 @@ When encountering errors, failing tests or other failure states, where fixing th
   - The JIRA issue should be separated with a `/` from the rest of the branch name
 - If this is not and JIRA Issue. Just use a descriptive name
 
-## Example Format
+## Example Formats
+Jira Issue:
 ```
 ABC-1/support_multiple_json_objects
+```
+
+Non-Jira issue:
+```
+support_multiple_json_objects
 ```
 
 ### Rules for Writing Git Commit Messages
