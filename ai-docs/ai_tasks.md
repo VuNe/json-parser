@@ -36,13 +36,20 @@
 - Run integration tests with Step 3 test files and verify backward compatibility ✅
 - Implement comprehensive error handling for invalid numbers, keywords, and type validation ✅
 
-## Slice 4: Nested Objects and Arrays (Step 4) ❌
-- Extend lexer to tokenize array brackets `[`, `]` ❌
-- Implement recursive parsing for nested objects ❌
-- Implement array parsing logic ❌
-- Handle mixed nested structures ❌
-- Update unit tests for Step 4 ❌
-- Test against provided Step 4 test files ❌
+## Slice 4: Nested Objects and Arrays (Step 4) ✅
+- Create Step 4 test data files (valid and invalid) ✅
+- Extend lexer NextToken() method to handle `[` and `]` array brackets ✅
+- Implement parseArray() method in parser for array parsing ✅
+- Add array case to parseValue() method for recursive value parsing ✅
+- Update parseValue() to handle recursive objects within arrays ✅
+- Add comprehensive unit tests for array tokenization ✅
+- Add unit tests for nested objects and arrays parsing ✅
+- Add unit tests for mixed nested structures (objects in arrays, arrays in objects) ✅
+- Add unit tests for malformed nested structures and error handling ✅
+- Extend JSON value types to support arrays ([]interface{}) ✅
+- Add position-aware error handling for nested structures ✅
+- Verify proper memory management for deeply nested structures ✅
+- Run integration tests with Step 4 test files and verify backward compatibility ✅
 
 ## Slice 5: Comprehensive Testing & Validation (Step 5) ❌
 - Add comprehensive error messages with position information ❌

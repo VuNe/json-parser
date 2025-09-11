@@ -699,6 +699,89 @@ func TestLexer_BooleanAndNull(t *testing.T) {
 	}
 }
 
+// TestLexer_BracketTokenization tests the lexer's ability to tokenize array brackets.
+func TestLexer_BracketTokenization(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          string
+		expectedTokens []Token
+	}{
+		{
+			name:  "left bracket token",
+			input: "[",
+			expectedTokens: []Token{
+				{Type: LEFT_BRACKET, Value: "[", Position: Position{Line: 1, Column: 1, Offset: 0}},
+				{Type: EOF, Value: "", Position: Position{Line: 1, Column: 2, Offset: 1}},
+			},
+		},
+		{
+			name:  "right bracket token",
+			input: "]",
+			expectedTokens: []Token{
+				{Type: RIGHT_BRACKET, Value: "]", Position: Position{Line: 1, Column: 1, Offset: 0}},
+				{Type: EOF, Value: "", Position: Position{Line: 1, Column: 2, Offset: 1}},
+			},
+		},
+		{
+			name:  "empty array structure",
+			input: "[]",
+			expectedTokens: []Token{
+				{Type: LEFT_BRACKET, Value: "[", Position: Position{Line: 1, Column: 1, Offset: 0}},
+				{Type: RIGHT_BRACKET, Value: "]", Position: Position{Line: 1, Column: 2, Offset: 1}},
+				{Type: EOF, Value: "", Position: Position{Line: 1, Column: 3, Offset: 2}},
+			},
+		},
+		{
+			name:  "array with values",
+			input: `[1,"test"]`,
+			expectedTokens: []Token{
+				{Type: LEFT_BRACKET, Value: "[", Position: Position{Line: 1, Column: 1, Offset: 0}},
+				{Type: NUMBER, Value: "1", Position: Position{Line: 1, Column: 2, Offset: 1}},
+				{Type: COMMA, Value: ",", Position: Position{Line: 1, Column: 3, Offset: 2}},
+				{Type: STRING, Value: "test", Position: Position{Line: 1, Column: 4, Offset: 3}},
+				{Type: RIGHT_BRACKET, Value: "]", Position: Position{Line: 1, Column: 10, Offset: 9}},
+				{Type: EOF, Value: "", Position: Position{Line: 1, Column: 11, Offset: 10}},
+			},
+		},
+		{
+			name:  "nested arrays",
+			input: "[[]]",
+			expectedTokens: []Token{
+				{Type: LEFT_BRACKET, Value: "[", Position: Position{Line: 1, Column: 1, Offset: 0}},
+				{Type: LEFT_BRACKET, Value: "[", Position: Position{Line: 1, Column: 2, Offset: 1}},
+				{Type: RIGHT_BRACKET, Value: "]", Position: Position{Line: 1, Column: 3, Offset: 2}},
+				{Type: RIGHT_BRACKET, Value: "]", Position: Position{Line: 1, Column: 4, Offset: 3}},
+				{Type: EOF, Value: "", Position: Position{Line: 1, Column: 5, Offset: 4}},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lexer := New(tt.input)
+
+			for i, expectedToken := range tt.expectedTokens {
+				token, err := lexer.NextToken()
+				if err != nil {
+					t.Fatalf("NextToken() returned error: %v", err)
+				}
+
+				if token.Type != expectedToken.Type {
+					t.Errorf("token[%d].Type = %v, expected %v", i, token.Type, expectedToken.Type)
+				}
+
+				if token.Value != expectedToken.Value {
+					t.Errorf("token[%d].Value = %q, expected %q", i, token.Value, expectedToken.Value)
+				}
+
+				if token.Position != expectedToken.Position {
+					t.Errorf("token[%d].Position = %v, expected %v", i, token.Position, expectedToken.Position)
+				}
+			}
+		})
+	}
+}
+
 // TestLexer_InvalidKeywords tests the lexer's ability to detect invalid keywords.
 func TestLexer_InvalidKeywords(t *testing.T) {
 	tests := []struct {

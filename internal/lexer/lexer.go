@@ -78,6 +78,12 @@ func (l *lexer) NextToken() (Token, error) {
 	case '}':
 		tok = Token{Type: RIGHT_BRACE, Value: string(l.ch), Position: l.position}
 		l.readChar()
+	case '[':
+		tok = Token{Type: LEFT_BRACKET, Value: string(l.ch), Position: l.position}
+		l.readChar()
+	case ']':
+		tok = Token{Type: RIGHT_BRACKET, Value: string(l.ch), Position: l.position}
+		l.readChar()
 	case ':':
 		tok = Token{Type: COLON, Value: string(l.ch), Position: l.position}
 		l.readChar()

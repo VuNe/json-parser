@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/VuNe/json-parser/internal/lexer"
@@ -61,7 +60,7 @@ func (p *parser) Parse() (JSONValue, error) {
 	return value, nil
 }
 
-// ParseValue parses a JSON value (supports objects and strings).
+// ParseValue parses a JSON value (supports objects, arrays, and all primitive types).
 func (p *parser) ParseValue() (JSONValue, error) {
 	return p.parseValue()
 }
@@ -104,7 +103,7 @@ func (p *parser) parseObject() (JSONValue, error) {
 		}
 		p.nextToken()
 
-		// Parse value (for Step 2, only strings are supported)
+		// Parse value (supports all JSON types)
 		value, err := p.parseValue()
 		if err != nil {
 			return nil, err
@@ -131,11 +130,64 @@ func (p *parser) parseObject() (JSONValue, error) {
 	return obj, nil
 }
 
-// parseValue parses a JSON value (supports objects, strings, numbers, booleans, and null).
+// parseArray parses a JSON array with comma-separated values.
+func (p *parser) parseArray() (JSONValue, error) {
+	if p.currentToken.Type != lexer.LEFT_BRACKET {
+		return nil, NewParseError("expected '['", p.currentToken)
+	}
+
+	// Move past the opening bracket
+	p.nextToken()
+
+	// Check if we hit EOF before finding the closing bracket
+	if p.currentToken.Type == lexer.EOF {
+		return nil, NewParseError("expected ']'", p.currentToken)
+	}
+
+	var arr []any
+
+	// Check if it's an empty array
+	if p.currentToken.Type == lexer.RIGHT_BRACKET {
+		p.nextToken() // consume the closing bracket
+		return arr, nil
+	}
+
+	// Parse array elements
+	for {
+		// Parse value
+		value, err := p.parseValue()
+		if err != nil {
+			return nil, err
+		}
+
+		arr = append(arr, value)
+
+		// Check for comma or closing bracket
+		if p.currentToken.Type == lexer.RIGHT_BRACKET {
+			p.nextToken() // consume the closing bracket
+			break
+		} else if p.currentToken.Type == lexer.COMMA {
+			p.nextToken() // consume the comma
+
+			// After comma, we must have another value or it's an error
+			if p.currentToken.Type == lexer.RIGHT_BRACKET {
+				return nil, NewParseError("trailing comma not allowed", p.currentToken)
+			}
+		} else {
+			return nil, NewParseError("expected ',' or ']'", p.currentToken)
+		}
+	}
+
+	return arr, nil
+}
+
+// parseValue parses a JSON value (supports objects, arrays, strings, numbers, booleans, and null).
 func (p *parser) parseValue() (JSONValue, error) {
 	switch p.currentToken.Type {
 	case lexer.LEFT_BRACE:
 		return p.parseObject()
+	case lexer.LEFT_BRACKET:
+		return p.parseArray()
 	case lexer.STRING:
 		value := p.currentToken.Value
 		p.nextToken()
@@ -148,6 +200,8 @@ func (p *parser) parseValue() (JSONValue, error) {
 		return p.parseNull()
 	case lexer.EOF:
 		return nil, NewParseError("unexpected end of input", p.currentToken)
+	case lexer.INVALID, lexer.RIGHT_BRACE, lexer.RIGHT_BRACKET, lexer.COLON, lexer.COMMA:
+		return nil, NewParseError("expected JSON value", p.currentToken)
 	default:
 		return nil, NewParseError("expected JSON value", p.currentToken)
 	}
@@ -197,16 +251,4 @@ func (p *parser) parseNull() (JSONValue, error) {
 	}
 
 	return nil, NewParseError("invalid null value", p.currentToken)
-}
-
-// expectToken checks if the current token matches the expected type and advances.
-func (p *parser) expectToken(expected lexer.TokenType) error {
-	if p.currentToken.Type != expected {
-		return NewParseError(
-			fmt.Sprintf("expected %s, got %s", expected, p.currentToken.Type),
-			p.currentToken,
-		)
-	}
-	p.nextToken()
-	return nil
 }

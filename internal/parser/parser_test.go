@@ -465,6 +465,20 @@ func deepEqualValue(a, b any) bool {
 	case string:
 		val2, ok := b.(string)
 		return ok && val1 == val2
+	case []any:
+		val2, ok := b.([]any)
+		if !ok {
+			return false
+		}
+		if len(val1) != len(val2) {
+			return false
+		}
+		for i, v1 := range val1 {
+			if !deepEqualValue(v1, val2[i]) {
+				return false
+			}
+		}
+		return true
 	case map[string]any:
 		val2, ok := b.(map[string]any)
 		if ok {
@@ -769,6 +783,210 @@ func TestParser_MixedTypes(t *testing.T) {
 			// Check that we have the right number of keys
 			if len(obj) != len(tt.expected) {
 				t.Errorf("Expected %d keys, got %d", len(tt.expected), len(obj))
+			}
+		})
+	}
+}
+
+// TestParser_ArrayParsing tests the parser's ability to parse arrays correctly.
+func TestParser_ArrayParsing(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		expectedValue any
+		expectError   bool
+	}{
+		{
+			name:          "empty array",
+			input:         `{"items": []}`,
+			expectedValue: []any{},
+			expectError:   false,
+		},
+		{
+			name:          "array with numbers",
+			input:         `{"numbers": [1, 2, 3]}`,
+			expectedValue: []any{int64(1), int64(2), int64(3)},
+			expectError:   false,
+		},
+		{
+			name:          "array with strings",
+			input:         `{"names": ["Alice", "Bob", "Charlie"]}`,
+			expectedValue: []any{"Alice", "Bob", "Charlie"},
+			expectError:   false,
+		},
+		{
+			name:          "array with mixed types",
+			input:         `{"mixed": [1, "text", true, null]}`,
+			expectedValue: []any{int64(1), "text", true, nil},
+			expectError:   false,
+		},
+		{
+			name:          "array with floats",
+			input:         `{"floats": [1.5, 2.7, 3.14]}`,
+			expectedValue: []any{1.5, 2.7, 3.14},
+			expectError:   false,
+		},
+		{
+			name:          "nested empty arrays",
+			input:         `{"nested": [[], []]}`,
+			expectedValue: []any{[]any{}, []any{}},
+			expectError:   false,
+		},
+		{
+			name:        "trailing comma",
+			input:       `{"items": [1, 2, 3,]}`,
+			expectError: true,
+		},
+		{
+			name:        "missing comma",
+			input:       `{"items": [1 2 3]}`,
+			expectError: true,
+		},
+		{
+			name:        "missing closing bracket",
+			input:       `{"items": [1, 2, 3}`,
+			expectError: true,
+		},
+		{
+			name:        "missing opening bracket",
+			input:       `{"items": 1, 2, 3]}`,
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := New(l)
+
+			result, err := p.Parse()
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Parse() returned error: %v", err)
+			}
+
+			obj, ok := result.(JSONObject)
+			if !ok {
+				t.Fatalf("Expected JSONObject, got %T", result)
+			}
+
+			// Get the array value from the object
+			var arrayKey string
+			for key := range obj {
+				arrayKey = key
+				break
+			}
+
+			actualValue := obj[arrayKey]
+			if !deepEqualValue(actualValue, tt.expectedValue) {
+				t.Errorf("Expected %v (%T), got %v (%T)", tt.expectedValue, tt.expectedValue, actualValue, actualValue)
+			}
+		})
+	}
+}
+
+// TestParser_NestedStructures tests parsing of nested objects and arrays.
+func TestParser_NestedStructures(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		expectedValue any
+		expectError   bool
+	}{
+		{
+			name:  "nested objects",
+			input: `{"person": {"name": "John", "age": 30}}`,
+			expectedValue: map[string]any{
+				"person": map[string]any{
+					"name": "John",
+					"age":  int64(30),
+				},
+			},
+			expectError: false,
+		},
+		{
+			name:  "objects in array",
+			input: `{"users": [{"name": "Alice"}, {"name": "Bob"}]}`,
+			expectedValue: map[string]any{
+				"users": []any{
+					map[string]any{"name": "Alice"},
+					map[string]any{"name": "Bob"},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name:  "arrays in objects",
+			input: `{"data": {"items": [1, 2, 3]}}`,
+			expectedValue: map[string]any{
+				"data": map[string]any{
+					"items": []any{int64(1), int64(2), int64(3)},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name:  "deeply nested",
+			input: `{"a": {"b": {"c": "deep"}}}`,
+			expectedValue: map[string]any{
+				"a": map[string]any{
+					"b": map[string]any{
+						"c": "deep",
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name:          "array of objects",
+			input:         `[{"id": 1}, {"id": 2}]`,
+			expectedValue: []any{map[string]any{"id": int64(1)}, map[string]any{"id": int64(2)}},
+			expectError:   false,
+		},
+		{
+			name:          "array of arrays",
+			input:         `[[1, 2], [3, 4]]`,
+			expectedValue: []any{[]any{int64(1), int64(2)}, []any{int64(3), int64(4)}},
+			expectError:   false,
+		},
+		{
+			name:  "empty nested structures",
+			input: `{"obj": {}, "arr": []}`,
+			expectedValue: map[string]any{
+				"obj": map[string]any{},
+				"arr": []any{},
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := New(l)
+
+			result, err := p.Parse()
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Parse() returned error: %v", err)
+			}
+
+			if !deepEqualValue(result, tt.expectedValue) {
+				t.Errorf("Expected %v, got %v", tt.expectedValue, result)
 			}
 		})
 	}
